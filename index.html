@@ -186,7 +186,7 @@ function speakText(text){
 
 // --- AI Fetch ---
 async function askAI(question){
-  const r=await fetch("http://localhost:5000/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:question,language:currentLang})});
+  const r=await fetch("/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:question,language:currentLang})});
   const data=await r.json();
   if(data.error) throw new Error(data.error);
   speakText(data.answer);
