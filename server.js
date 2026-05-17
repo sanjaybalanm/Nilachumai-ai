@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const axios = require("axios");
 const path = require("path");
 
 dotenv.config();
@@ -15,9 +15,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// ✅ Ask route with multilingual support
+// ✅ Ask route using Gemini REST API directly (most reliable)
 app.post("/ask", async (req, res) => {
   try {
     const { query, language } = req.body;
@@ -26,7 +24,6 @@ app.post("/ask", async (req, res) => {
       return res.status(400).json({ error: "Query is required" });
     }
 
-    // Convert frontend lang codes like "ta-IN" → "Tamil"
     const langMap = {
       "en-US": "English",
       "ta-IN": "Tamil",
@@ -36,24 +33,39 @@ app.post("/ask", async (req, res) => {
     };
     const targetLanguage = langMap[language] || "English";
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-
-    // Tell Gemini to always respond in the chosen language
     const prompt = `You are NILACHUMAI, an AI legal assistant for rural citizens.
 Always answer in **${targetLanguage} language**.
 If the question is not about land disputes, politely refuse.
 Question: ${query}`;
 
-    const result = await model.generateContent(prompt);
+    const apiKey = process.env.GEMINI_API_KEY;
+    console.log("Using API Key (first 10 chars):", apiKey ? apiKey.substring(0, 10) : "NOT SET");
+
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+      },
+      {
+        headers: { "Content-Type": "application/json" },
+        timeout: 30000,
+      }
+    );
+
+    const answer = response.data.candidates[0].content.parts[0].text;
 
     res.json({
-      answer: result.response.text(),
+      answer: answer,
       language: targetLanguage,
     });
   } catch (err) {
-    console.error("Gemini API Error:", err.message);
-    console.error("Full error:", JSON.stringify(err, null, 2));
-    res.status(500).json({ error: "AI backend error", details: err.message });
+    const errMsg = err.response ? JSON.stringify(err.response.data) : err.message;
+    console.error("Gemini API Error:", errMsg);
+    res.status(500).json({ error: "AI backend error", details: errMsg });
   }
 });
 
