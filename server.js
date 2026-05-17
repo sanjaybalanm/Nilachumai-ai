@@ -36,7 +36,7 @@ app.post("/ask", async (req, res) => {
     };
     const targetLanguage = langMap[language] || "English";
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     // Tell Gemini to always respond in the chosen language
     const prompt = `You are NILACHUMAI, an AI legal assistant for rural citizens.
@@ -52,7 +52,8 @@ Question: ${query}`;
     });
   } catch (err) {
     console.error("Gemini API Error:", err.message);
-    res.status(500).json({ error: "AI backend error" });
+    console.error("Full error:", JSON.stringify(err, null, 2));
+    res.status(500).json({ error: "AI backend error", details: err.message });
   }
 });
 
