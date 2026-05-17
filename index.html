@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NILACHUMAI AI Chatbot</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+<style>
+* { box-sizing: border-box; margin:0; padding:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+body { height:100vh; display:flex; justify-content:center; align-items:center; overflow:hidden; background:#0d0d30; position:relative; }
+body::before { content:''; position:absolute; top:0; left:0; right:0; bottom:0; background:linear-gradient(45deg,#2563eb,#3b82f6,#06b6d4,#1e40af); background-size:400% 400%; animation:gradientBG 15s ease infinite; z-index:-3; }
+@keyframes gradientBG {0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+.shape{position:absolute;border-radius:50%;opacity:0.2;animation:float 20s linear infinite; z-index:-2;}
+@keyframes float{0%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-50px) rotate(180deg);}100%{transform:translateY(0) rotate(360deg);} }
+.shape1{width:150px;height:150px;background:#fff;top:10%;left:20%;}
+.shape2{width:200px;height:200px;background:#00ffff;top:60%;left:70%;}
+.shape3{width:100px;height:100px;background:#ff00ff;top:40%;left:50%;}
+.card{background:rgba(255,255,255,0.1);backdrop-filter:blur(15px);border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:30px 25px;width:100%;max-width:450px;display:flex;flex-direction:column;gap:20px;position:relative;z-index:1;transition:transform 0.3s,box-shadow 0.3s;}
+.card:hover{transform:translateY(-5px);box-shadow:0 15px 35px rgba(0,0,0,0.5);}
+h2{text-align:center;color:#fff;font-size:26px;}
+input{width:100%;padding:12px 15px;border-radius:12px;border:none;background:rgba(255,255,255,0.2);color:#fff;font-size:15px;transition:0.3s;}
+input::placeholder{color:#e0e0e0;}
+input:focus{background:rgba(255,255,255,0.3);box-shadow:0 0 10px rgba(255,255,255,0.3);outline:none;}
+button{cursor:pointer;transition:0.3s;border:none;border-radius:12px;padding:12px;color:#fff;font-size:16px;}
+button:hover{transform:translateY(-2px);}
+.link-btn{background:none;color:#00ffff;text-align:center;font-size:14px;margin-top:5px;text-decoration:underline;cursor:pointer;}
+#menu-dropdown div:hover{background-color: rgba(255,255,255,0.1);}
+#chat-card{display:none;position:fixed;top:0;left:0;width:100%;height:100%;border-radius:0;padding:20px;box-sizing:border-box;flex-direction:column;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);}
+#chat-card.card{max-width:none;}
+#chat-window{flex:1;overflow-y:auto;padding:15px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;flex-direction:column;gap:15px;color:#fff;}
+.message{display:flex;width:100%;}
+.message.user{justify-content:flex-end;}
+.bubble{padding:12px 16px;border-radius:16px;max-width:75%;line-height:1.5;white-space:pre-wrap;animation:fadeIn 0.3s ease;}
+.message.user .bubble{background:linear-gradient(135deg,#2563eb,#1e40af);color:white;border-bottom-right-radius:4px;}
+.message.bot .bubble{background:rgba(255,255,255,0.2);color:#fff;border-bottom-left-radius:4px;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+#chat-form{display:flex;gap:10px;margin-top:10px;position:sticky;bottom:0;}
+#chat-form button{flex:0 0 80px;padding:10px;border-radius:12px;border:none;background:#2563eb;color:white;font-size:16px;cursor:pointer;}
+#user-input{flex:1;padding:12px 15px;border-radius:20px;border:none;background:rgba(255,255,255,0.2);color:#fff;}
+#process-patta{background:#00ffff;color:#000;font-weight:bold;cursor:pointer;}
+#process-patta:hover{background:#06b6d4;color:white;}
+</style>
+</head>
+<body>
+
+<div class="shape shape1"></div>
+<div class="shape shape2"></div>
+<div class="shape shape3"></div>
+
+<!-- Signup Card -->
+<div id="signup-card" class="card">
+<h2>Signup</h2>
+<input type="text" id="signup-username" placeholder="Username" required>
+<input type="email" id="signup-email" placeholder="Email" required>
+<input type="password" id="signup-password" placeholder="Password" required>
+<button id="signup-btn">Create Account</button>
+<div id="signup-error" style="color:red;text-align:center;"></div>
+<div class="link-btn" id="to-login">Already have an account? Login</div>
+</div>
+
+<!-- Login Card -->
+<div id="login-card" class="card" style="display:none;">
+<h2>Login</h2>
+<input type="text" id="login-username" placeholder="Username" required>
+<input type="password" id="login-password" placeholder="Password" required>
+<button id="login-btn">Login</button>
+<div id="login-error" style="color:red;text-align:center;"></div>
+<div class="link-btn" id="to-signup">Don't have an account? Signup</div>
+</div>
+
+<!-- Chatbot Card -->
+<div id="chat-card" class="card">
+<div style="position:absolute; top:15px; right:20px; cursor:pointer; font-size:20px;" id="menu-btn">&#x22EE;</div>
+<div id="menu-dropdown" style="display:none; position:absolute; top:35px; right:20px; background:#fff; border:1px solid #ccc; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15); z-index:10; min-width:150px; flex-direction: column;">
+<div id="view-history-btn" style="padding:10px; cursor:pointer; color:#2563eb;">View History</div>
+<div id="logout-btn" style="padding:10px; cursor:pointer; color:#ef4444;">Logout</div>
+</div>
+
+<h2>NILACHUMAI AI Chatbot</h2>
+
+<!-- 🌐 Language Selector -->
+<label for="language-select" style="color:#fff; font-size:14px;">🌐 Select Language:</label>
+<select id="language-select" style="margin:5px; padding:5px; border-radius:8px;">
+  <option value="en-US" data-tess="eng">English</option>
+  <option value="ta-IN" data-tess="tam">தமிழ் (Tamil)</option>
+  <option value="hi-IN" data-tess="hin">हिन्दी (Hindi)</option>
+  <option value="te-IN" data-tess="tel">తెలుగు (Telugu)</option>
+  <option value="ml-IN" data-tess="mal">മലയാളം (Malayalam)</option>
+</select>
+
+<!-- Patta Upload -->
+<input type="file" id="patta-upload" accept="image/*">
+<button id="process-patta">Extract Patta Text</button>
+
+<div id="chat-window"></div>
+
+<form id="chat-form">
+<input type="text" id="user-input" placeholder="Ask questions about your Patta..." required />
+<button type="submit">Send</button>
+</form>
+</div>
+
+<script>
+const signupCard=document.getElementById("signup-card");
+const loginCard=document.getElementById("login-card");
+const chatCard=document.getElementById("chat-card");
+const menuBtn=document.getElementById("menu-btn");
+const menuDropdown=document.getElementById("menu-dropdown");
+let currentUser=null;
+let pattaText="";
+
+// --- Multilingual Support ---
+const langSelect=document.getElementById("language-select");
+let currentLang="en-US"; // default
+let currentTessLang="eng"; // default OCR
+
+langSelect.addEventListener("change",()=>{
+  currentLang=langSelect.value;
+  currentTessLang=langSelect.options[langSelect.selectedIndex].dataset.tess;
+  console.log("Selected Language:",currentLang,currentTessLang);
+  if(recognition){ recognition.lang=currentLang; }
+});
+
+// Menu Toggle
+menuBtn.addEventListener("click",()=>{ menuDropdown.style.display=menuDropdown.style.display==="flex"?"none":"flex"; menuDropdown.style.flexDirection="column"; });
+
+// Switch cards
+document.getElementById("to-login").addEventListener("click",()=>{ signupCard.style.display="none"; loginCard.style.display="flex"; });
+document.getElementById("to-signup").addEventListener("click",()=>{ loginCard.style.display="none"; signupCard.style.display="flex"; });
+
+// Signup & Login
+document.getElementById("signup-btn").addEventListener("click",()=>{
+  const username=document.getElementById("signup-username").value.trim();
+  const email=document.getElementById("signup-email").value.trim();
+  const password=document.getElementById("signup-password").value.trim();
+  const signupError=document.getElementById("signup-error");
+  if(!username||!email||!password){signupError.innerText="All fields required"; return;}
+  let users=JSON.parse(localStorage.getItem("users")||"[]");
+  if(users.find(u=>u.username===username)){signupError.innerText="Username exists!"; return;}
+  if(users.find(u=>u.email===email)){signupError.innerText="Email already registered!"; return;}
+  users.push({username,email,password});
+  localStorage.setItem("users",JSON.stringify(users));
+  signupError.style.color="green"; signupError.innerText="Account created! Please login.";
+  setTimeout(()=>{ signupCard.style.display="none"; loginCard.style.display="flex"; },1000);
+});
+document.getElementById("login-btn").addEventListener("click",()=>{
+  const username=document.getElementById("login-username").value.trim();
+  const password=document.getElementById("login-password").value.trim();
+  const loginError=document.getElementById("login-error");
+  let users=JSON.parse(localStorage.getItem("users")||"[]");
+  const user=users.find(u=>u.username===username&&u.password===password);
+  if(user){currentUser=user.username; loginCard.style.display="none"; signupCard.style.display="none"; chatCard.style.display="flex"; loginError.innerText="";}
+  else loginError.innerText="Invalid username or password!";
+});
+document.getElementById("logout-btn").addEventListener("click",()=>{
+  chatCard.style.display="none"; loginCard.style.display="flex"; document.getElementById("login-username").value=""; document.getElementById("login-password").value=""; document.getElementById("chat-window").innerHTML=""; menuDropdown.style.display="none"; currentUser=null; pattaText="";
+});
+
+// Chat helpers
+function formatAnswer(text){return text.replace(/\*\*/g,"").replace(/#+/g,"").split(/\n+/).map(p=>p.trim()).filter(Boolean).join("<br>");}
+function appendMessage(text,role){
+  const chat=document.getElementById("chat-window");
+  const wrapper=document.createElement("div");
+  wrapper.className=`message ${role}`;
+  const bubble=document.createElement("div");
+  bubble.className="bubble";
+  bubble.innerHTML=role==="bot"?formatAnswer(text):text;
+  wrapper.appendChild(bubble); chat.appendChild(wrapper); chat.scrollTop=chat.scrollHeight;
+  if(currentUser){
+    let history=JSON.parse(localStorage.getItem("chatHistory")||"{}");
+    if(!history[currentUser])history[currentUser]=[];
+    history[currentUser].push({role,text});
+    localStorage.setItem("chatHistory",JSON.stringify(history));
+  }
+  return bubble;
+}
+
+// --- Speak Function with Language ---
+function speakText(text){
+  if('speechSynthesis' in window){
+    const utterance=new SpeechSynthesisUtterance(text);
+    utterance.lang=currentLang;
+    speechSynthesis.speak(utterance);
+  }
+}
+
+// --- AI Fetch ---
+async function askAI(question){
+  const r=await fetch("http://localhost:5000/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:question,language:currentLang})});
+  const data=await r.json();
+  if(data.error) throw new Error(data.error);
+  speakText(data.answer);
+  return data.answer;
+}
+
+// Chat submit
+document.getElementById("chat-form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const inputEl=document.getElementById("user-input");
+  let question=inputEl.value.trim();
+  if(!question) return;
+  if(pattaText) question=`Patta Text: ${pattaText}\nQuestion: ${question}`;
+  appendMessage(inputEl.value,"user"); inputEl.value="";
+  const landKeywords=["land","patta","dispute","ownership","mutation","property"];
+  if(!landKeywords.some(word=>question.toLowerCase().includes(word))){appendMessage("⚠️ I can only answer land-related questions.","bot"); return;}
+  const botBubble=appendMessage("Thinking...","bot");
+  try{const aiAnswer=await askAI(question); botBubble.innerHTML=formatAnswer(aiAnswer);}catch(err){botBubble.innerHTML="⚠️ Error connecting to AI backend."; console.error(err);}
+});
+
+// --- Patta OCR with multilingual ---
+document.getElementById("process-patta").addEventListener("click",()=>{
+  const fileInput=document.getElementById("patta-upload");
+  if(!fileInput.files[0]) return alert("Please select a Patta image.");
+  const file=fileInput.files[0];
+  appendMessage("Extracting text from Patta...","bot");
+  Tesseract.recognize(file,currentTessLang,{logger:m=>console.log(m)})
+  .then(({data:{text}})=>{
+    const landKeywords=["patta","survey","land","owner","mutation","property","district","village"];
+    const isLandDoc=landKeywords.some(word=>text.toLowerCase().includes(word));
+    if(isLandDoc){pattaText=text; appendMessage("Patta text extracted! You can now ask questions about it.","bot");}
+    else{pattaText=""; appendMessage("⚠️ This file does not appear to be a land document. Please upload a valid Patta.","bot");}
+  }).catch(err=>{appendMessage("⚠️ Failed to extract text from Patta.","bot"); console.error(err);});
+});
+
+// View history
+document.getElementById("view-history-btn").addEventListener("click",()=>{
+  if(!currentUser) return;
+  const history=JSON.parse(localStorage.getItem("chatHistory")||"{}");
+  const userHistory=history[currentUser]||[];
+  const chatWindow=document.getElementById("chat-window"); chatWindow.innerHTML="";
+  if(userHistory.length===0) appendMessage("No previous history found.","bot"); else userHistory.forEach(msg=>appendMessage(msg.text,msg.role));
+  menuDropdown.style.display="none";
+});
+
+// --- Voice Input (Mic) ---
+const micBtn=document.createElement("button");
+micBtn.innerHTML="🎤";
+micBtn.title="Click and speak";
+micBtn.style.marginLeft="5px"; micBtn.style.padding="10px"; micBtn.style.borderRadius="50%";
+micBtn.style.width="45px"; micBtn.style.height="45px"; micBtn.style.border="none"; micBtn.style.cursor="pointer";
+micBtn.style.background="#00ffff"; micBtn.style.color="#000"; micBtn.style.fontSize="18px"; micBtn.style.transition="0.3s";
+document.getElementById("chat-form").appendChild(micBtn);
+
+let recognition;
+if("SpeechRecognition" in window || "webkitSpeechRecognition" in window){
+  const SpeechAPI=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SpeechAPI();
+  recognition.continuous=false;
+  recognition.interimResults=false;
+  recognition.lang=currentLang;
+
+  micBtn.addEventListener("click",()=>{
+    recognition.start();
+    micBtn.style.background="#2563eb"; micBtn.style.color="#fff"; micBtn.innerHTML="🎙️";
+  });
+
+  recognition.onresult=function(event){
+    const speechResult=event.results[0][0].transcript;
+    document.getElementById("user-input").value=speechResult;
+    document.getElementById("chat-form").requestSubmit();
+  };
+
+  recognition.onend=function(){
+    micBtn.style.background="#00ffff"; micBtn.style.color="#000"; micBtn.innerHTML="🎤";
+  };
+
+  recognition.onerror=function(event){
+    console.error("Speech recognition error:",event.error);
+    appendMessage("⚠️ Voice input error: "+event.error,"bot");
+    micBtn.style.background="#ef4444"; micBtn.innerHTML="❌";
+    setTimeout(()=>{micBtn.style.background="#00ffff"; micBtn.innerHTML="🎤";},2000);
+  };
+}else{
+
+  micBtn.disabled=true; micBtn.innerText="🎤 Not Supported"; micBtn.style.background="#999";
+}
+</script>
+</body>
+</html>
